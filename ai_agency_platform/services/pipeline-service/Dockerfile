@@ -13,6 +13,10 @@ COPY requirements.txt ./
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --no-cache-dir -r requirements.txt
 
+# If you later add sentence-transformers, install CPU-only torch first to avoid massive CUDA wheels:
+# RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch \
+#  && pip install --no-cache-dir sentence-transformers
+
 COPY app ./app
 
 USER app
