@@ -1,12 +1,35 @@
-**/node_modules
+# VCS
+.git
+.gitignore
+
+# Python artifacts
+**/__pycache__
+**/*.py[cod]
+**/*.so
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+
+# Virtual environments
+.venv
+venv
 **/venv
 **/.venv
-**/.git
-**/.next
-**/.vscode
-**/__pycache__
-**/*.pyc
-**/build
-**/dist
+**/node_modules
+
+# IDE and OS files
+.vscode
+.idea
+.DS_Store
+
+# Local/runtime data
 *.log
 .env
+.env.*
+coverage*
+htmlcov
+
+# Build artifacts
+build
+dist
+**/.next
