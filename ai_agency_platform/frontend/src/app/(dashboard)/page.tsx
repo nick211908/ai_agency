@@ -4,6 +4,52 @@ import { useState } from "react";
 import { api } from "@/lib/api";
 import { Send, Upload, FileUp, Briefcase, PenTool } from "lucide-react";
 
+const STATUS_MESSAGE_REGEX = /(workflow\s+started|request\s+received|agent\s+workflow\s+started)/i;
+
+const extractBestTextResponse = (value: unknown): string | null => {
+    if (typeof value === "string") {
+        const trimmed = value.trim();
+        if (!trimmed || STATUS_MESSAGE_REGEX.test(trimmed)) {
+            return null;
+        }
+        return trimmed;
+    }
+
+    if (!value || typeof value !== "object") {
+        return null;
+    }
+
+    const candidateKeys = [
+        "document",
+        "final_output",
+        "finalResponse",
+        "response",
+        "result",
+        "output",
+        "content",
+        "message",
+        "text",
+    ];
+
+    const record = value as Record<string, unknown>;
+    for (const key of candidateKeys) {
+        if (key in record) {
+            const candidate = extractBestTextResponse(record[key]);
+            if (candidate) return candidate;
+        }
+    }
+
+    if (Array.isArray((record as { messages?: unknown }).messages)) {
+        const messages = (record as { messages: unknown[] }).messages;
+        for (let i = messages.length - 1; i >= 0; i -= 1) {
+            const candidate = extractBestTextResponse(messages[i]);
+            if (candidate) return candidate;
+        }
+    }
+
+    return null;
+};
+
 export default function Dashboard() {
     const [selectedAgency, setSelectedAgency] = useState<"legal" | "design" | null>(null);
     const [prompt, setPrompt] = useState("");
@@ -25,30 +71,17 @@ export default function Dashboard() {
             if (data.status === "success") {
                 let outputMsg = "";
                 if (selectedAgency === "legal") {
-                    // Prioritize structured output (document + metrics)
-                    if (data.output && data.output.document) {
-                        outputMsg = "";
+                    const extractedOutput = extractBestTextResponse(data.output)
+                        || extractBestTextResponse(data.messages)
+                        || extractBestTextResponse(data)
+                        || "No final legal output was returned.";
 
-                        // Add Metrics if available
-                        if (data.metrics) {
-                            const riskScore = data.metrics.risk_score || "N/A";
-                            outputMsg += `**Risk Score:** ${riskScore}/100\n\n`;
-                        }
-
-                        // Add the main document content
-                        outputMsg += data.output.document;
-                    } else {
-                        // Fallback to simpler output or messages
-                        outputMsg = typeof data.output === 'string' ? data.output : JSON.stringify(data.output.output || data.output, null, 2);
-
-                        // If messages list exists and we didn't get a document, try to grab the last AI message
-                        // But ONLY if we haven't already found a document
-                        if (!outputMsg || outputMsg === "{}" || outputMsg === "[]") {
-                            if (data.messages && data.messages.length > 0) {
-                                outputMsg = data.messages[data.messages.length - 1];
-                            }
-                        }
+                    outputMsg = "";
+                    if (data.metrics) {
+                        const riskScore = data.metrics.risk_score || "N/A";
+                        outputMsg += `**Risk Score:** ${riskScore}/100\n\n`;
                     }
+                    outputMsg += extractedOutput;
                 } else {
                     // Design output structure might be different
                     outputMsg = JSON.stringify(data.output, null, 2);
